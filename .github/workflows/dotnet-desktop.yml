@@ -1,16 +1,52 @@
 name: build
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-      - run: dotnet restore gvas.sln
-      - run: dotnet publish GvasConverter/GvasConverter.csproj -c Release -r win-x64 --self-contained
-      - uses: actions/upload-artifact@v4
+          dotnet-version: |
+            6.0.x
+            8.0.x
+
+      - name: Restore
+        run: dotnet restore gvas.sln
+
+      - name: Show project TFM (debug)
+        run: |
+          Write-Host "=== GvasConverter.csproj ==="
+          Get-Content GvasConverter/GvasConverter.csproj
+          Write-Host "=== GvasFormat.csproj ==="
+          Get-Content GvasFormat/GvasFormat.csproj
+        shell: pwsh
+
+      - name: Publish GvasConverter
+        run: dotnet publish GvasConverter/GvasConverter.csproj -c Release -r win-x64 --self-contained true
+
+      - name: Show publish output tree (debug)
+        run: |
+          Write-Host "=== Looking for publish folders ==="
+          Get-ChildItem -Path . -Recurse -Directory -Filter publish | ForEach-Object { Write-Host $_.FullName }
+          Write-Host "=== Looking for GvasConverter.exe ==="
+          Get-ChildItem -Path . -Recurse -Filter GvasConverter.exe | ForEach-Object { Write-Host $_.FullName }
+        shell: pwsh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
           name: gvas-converter-win
-          path: GvasConverter/bin/Release/net8.0/win-x64/publish/
+          path: |
+            **/bin/Release/**/publish/**
+          if-no-files-found: error
+          retention-days: 30
